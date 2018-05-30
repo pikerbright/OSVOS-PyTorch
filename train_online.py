@@ -39,7 +39,7 @@ vis_net = 0  # Visualize the network?
 vis_res = 0  # Visualize the results?
 nAveGrad = 5  # Average the gradient every nAveGrad iterations
 nEpochs = 2000 * nAveGrad  # Number of epochs for training
-snapshot = nEpochs  # Store a model every snapshot epochs
+snapshot = nEpochs/100  # Store a model every snapshot epochs
 
 # Parameters in p are used for the name of the model
 p = {
@@ -113,11 +113,11 @@ composed_transforms = transforms.Compose([tr.RandomHorizontalFlip(),
                                           tr.ToTensor()])
 # Training dataset and its iterator
 db_train = db.DAVIS2016(train=True, db_root_dir=db_root_dir, transform=composed_transforms, seq_name=None)
-trainloader = DataLoader(db_train, batch_size=p['trainBatch'], shuffle=True, num_workers=4)
+trainloader = DataLoader(db_train, batch_size=p['trainBatch'], shuffle=True, num_workers=8)
 
 # Testing dataset and its iterator
 db_test = db.DAVIS2016(train=False, db_root_dir=db_root_dir, transform=tr.ToTensor(), seq_name=None)
-testloader = DataLoader(db_test, batch_size=1, shuffle=False, num_workers=4)
+testloader = DataLoader(db_test, batch_size=1, shuffle=False, num_workers=8)
 
 
 num_img_tr = len(trainloader)
@@ -153,7 +153,7 @@ for epoch in range(0, nEpochs):
         running_loss_tr += loss.item()  # PyTorch 0.4.0 style
 
         # Print stuff
-        if epoch % (nEpochs//20) == (nEpochs//20 - 1):
+        if epoch:
             running_loss_tr /= num_img_tr
             loss_tr.append(running_loss_tr)
 
@@ -177,7 +177,7 @@ for epoch in range(0, nEpochs):
 
     # Save the model
     if (epoch % snapshot) == snapshot - 1 and epoch != 0:
-        torch.save(net.state_dict(), os.path.join(save_dir, seq_name + '_epoch-'+str(epoch) + '.pth'))
+        torch.save(net.state_dict(), os.path.join(save_dir, seq_name + '_epoch-N' + '.pth'))
 
 stop_time = timeit.default_timer()
 print('Online training time: ' + str(stop_time - start_time))
