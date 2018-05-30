@@ -44,19 +44,34 @@ parentEpoch = 240
 
 # Parameters in p are used for the name of the model
 p = {
-    'trainBatch': 8,  # Number of Images in each mini-batch
+    'trainBatch': 12,  # Number of Images in each mini-batch
     }
 seed = 0
 
 parentModelName = 'parent'
 # Select which GPU, -1 if CPU
-gpu_id = 0
-device = torch.device("cuda:"+str(gpu_id) if torch.cuda.is_available() else "cpu")
+# gpu_id = 0
+# device = torch.device("cuda:"+str(gpu_id) if torch.cuda.is_available() else "cpu")
+
+def load_network(network):
+    save_path = os.path.join(save_dir, parentModelName+'_epoch-'+str(parentEpoch-1)+'.pth')
+    state_dict = torch.load(save_path, map_location=lambda storage, loc: storage)
+    # create new OrderedDict that does not contain `module.`
+    from collections import OrderedDict
+    new_state_dict = OrderedDict()
+    for k, v in state_dict.items():
+        print("{}".format(k))
+        namekey = k # remove `module.`
+        new_state_dict[namekey] = v
+    # load params
+    network.load_state_dict(new_state_dict)
+    return network
 
 # Network definition
 net = vo.OSVOS(pretrained=0)
 net.load_state_dict(torch.load(os.path.join(save_dir, parentModelName+'_epoch-'+str(parentEpoch-1)+'.pth'),
                                map_location=lambda storage, loc: storage))
+# net = load_network(net)
 
 # Logging into Tensorboard
 log_dir = os.path.join(save_dir, 'runs', datetime.now().strftime('%b%d_%H-%M-%S') + '_' + socket.gethostname()+'-'+seq_name)
@@ -87,7 +102,8 @@ optimizer = optim.SGD([
     {'params': net.fuse.bias, 'lr': 2*lr/100},
     ], lr=lr, momentum=0.9)
 
-net = torch.nn.DataParallel(net).cuda()
+device_ids = [0, 1, 2]
+net = torch.nn.DataParallel(net, device_ids=device_ids).cuda()
 
 # Preparation of the data loaders
 # Define augmentation transformations as a composition
@@ -95,11 +111,11 @@ composed_transforms = transforms.Compose([tr.RandomHorizontalFlip(),
                                           tr.ScaleNRotate(rots=(-30, 30), scales=(.75, 1.25)),
                                           tr.ToTensor()])
 # Training dataset and its iterator
-db_train = db.DAVIS2016(train=True, db_root_dir=db_root_dir, transform=composed_transforms, seq_name=seq_name)
+db_train = db.DAVIS2016(train=True, db_root_dir=db_root_dir, transform=composed_transforms, seq_name=None)
 trainloader = DataLoader(db_train, batch_size=p['trainBatch'], shuffle=True, num_workers=1)
 
 # Testing dataset and its iterator
-db_test = db.DAVIS2016(train=False, db_root_dir=db_root_dir, transform=tr.ToTensor(), seq_name=seq_name)
+db_test = db.DAVIS2016(train=False, db_root_dir=db_root_dir, transform=tr.ToTensor(), seq_name=None)
 testloader = DataLoader(db_test, batch_size=1, shuffle=False, num_workers=1)
 
 
@@ -115,18 +131,24 @@ for epoch in range(0, nEpochs):
     # One training epoch
     running_loss_tr = 0
     np.random.seed(seed + epoch)
+
+    net.train()
+
     for ii, sample_batched in enumerate(trainloader):
 
         inputs, gts = sample_batched['image'], sample_batched['gt']
 
         # Forward-Backward of the mini-batch
         inputs.requires_grad_()
-        inputs, gts = inputs.to(device), gts.to(device)
+        # inputs, gts = inputs.to(device), gts.to(device)
+        gts = gts.cuda(async=True)
+        input_var = torch.autograd.Variable(inputs)
+        gts_var = torch.autograd.Variable(gts)
 
-        outputs = net.forward(inputs)
+        outputs = net(input_var)
 
         # Compute the fuse loss
-        loss = class_balanced_cross_entropy_loss(outputs[-1], gts, size_average=False)
+        loss = class_balanced_cross_entropy_loss(outputs[-1], gts_var, size_average=False)
         running_loss_tr += loss.item()  # PyTorch 0.4.0 style
 
         # Print stuff
@@ -138,6 +160,8 @@ for epoch in range(0, nEpochs):
             print('Loss: %f' % running_loss_tr)
             writer.add_scalar('data/total_loss_epoch', running_loss_tr, epoch)
 
+        optimizer.zero_grad()
+
         # Backward the averaged gradient
         loss /= nAveGrad
         loss.backward()
@@ -147,7 +171,7 @@ for epoch in range(0, nEpochs):
         if aveGrad % nAveGrad == 0:
             writer.add_scalar('data/total_loss_iter', loss.item(), ii + num_img_tr * epoch)
             optimizer.step()
-            optimizer.zero_grad()
+            # optimizer.zero_grad()
             aveGrad = 0
 
     # Save the model
@@ -178,7 +202,10 @@ with torch.no_grad():  # PyTorch 0.4.0 style
         img, gt, fname = sample_batched['image'], sample_batched['gt'], sample_batched['fname']
 
         # Forward of the mini-batch
-        inputs, gts = img.to(device), gt.to(device)
+        # inputs, gts = img.to(device), gt.to(device)
+        gt = gt.cuda(async=True)
+        inputs = torch.autograd.Variable(img)
+        gt = torch.autograd.Variable(gt)
 
         outputs = net.forward(inputs)
 
