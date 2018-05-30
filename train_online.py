@@ -35,8 +35,8 @@ save_dir = Path.save_root_dir()
 if not os.path.exists(save_dir):
     os.makedirs(os.path.join(save_dir))
 
-vis_net = 0  # Visualize the network?
-vis_res = 0  # Visualize the results?
+vis_net = 1  # Visualize the network?
+vis_res = 1  # Visualize the results?
 nAveGrad = 5  # Average the gradient every nAveGrad iterations
 nEpochs = 2000 * nAveGrad  # Number of epochs for training
 snapshot = nEpochs  # Store a model every snapshot epochs
