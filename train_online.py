@@ -44,7 +44,7 @@ parentEpoch = 240
 
 # Parameters in p are used for the name of the model
 p = {
-    'trainBatch': 1,  # Number of Images in each mini-batch
+    'trainBatch': 8,  # Number of Images in each mini-batch
     }
 seed = 0
 
@@ -62,7 +62,8 @@ net.load_state_dict(torch.load(os.path.join(save_dir, parentModelName+'_epoch-'+
 log_dir = os.path.join(save_dir, 'runs', datetime.now().strftime('%b%d_%H-%M-%S') + '_' + socket.gethostname()+'-'+seq_name)
 writer = SummaryWriter(log_dir=log_dir)
 
-net.to(device)  # PyTorch 0.4.0 style
+# net.to(device)  # PyTorch 0.4.0 style
+net = torch.nn.DataParallel(net).cuda()
 
 # Visualize the network
 if vis_net:
