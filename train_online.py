@@ -35,7 +35,7 @@ save_dir = Path.save_root_dir()
 if not os.path.exists(save_dir):
     os.makedirs(os.path.join(save_dir))
 
-vis_net = 1  # Visualize the network?
+vis_net = 0  # Visualize the network?
 vis_res = 1  # Visualize the results?
 nAveGrad = 5  # Average the gradient every nAveGrad iterations
 nEpochs = 2000 * nAveGrad  # Number of epochs for training
@@ -63,7 +63,6 @@ log_dir = os.path.join(save_dir, 'runs', datetime.now().strftime('%b%d_%H-%M-%S'
 writer = SummaryWriter(log_dir=log_dir)
 
 # net.to(device)  # PyTorch 0.4.0 style
-net = torch.nn.DataParallel(net).cuda()
 
 # Visualize the network
 if vis_net:
@@ -87,6 +86,8 @@ optimizer = optim.SGD([
     {'params': net.fuse.weight, 'lr': lr/100, 'weight_decay': wd},
     {'params': net.fuse.bias, 'lr': 2*lr/100},
     ], lr=lr, momentum=0.9)
+
+net = torch.nn.DataParallel(net).cuda()
 
 # Preparation of the data loaders
 # Define augmentation transformations as a composition
