@@ -36,11 +36,10 @@ if not os.path.exists(save_dir):
     os.makedirs(os.path.join(save_dir))
 
 vis_net = 0  # Visualize the network?
-vis_res = 1  # Visualize the results?
+vis_res = 0  # Visualize the results?
 nAveGrad = 5  # Average the gradient every nAveGrad iterations
 nEpochs = 2000 * nAveGrad  # Number of epochs for training
 snapshot = nEpochs  # Store a model every snapshot epochs
-parentEpoch = 240
 
 # Parameters in p are used for the name of the model
 p = {
@@ -48,7 +47,9 @@ p = {
     }
 seed = 0
 
-parentModelName = 'parent'
+parentModelName = 'blackswan'
+parentEpoch = 10000
+
 # Select which GPU, -1 if CPU
 # gpu_id = 0
 # device = torch.device("cuda:"+str(gpu_id) if torch.cuda.is_available() else "cpu")
@@ -61,7 +62,7 @@ def load_network(network):
     new_state_dict = OrderedDict()
     for k, v in state_dict.items():
         print("{}".format(k))
-        namekey = k # remove `module.`
+        namekey = k[7:] # remove `module.`
         new_state_dict[namekey] = v
     # load params
     network.load_state_dict(new_state_dict)
@@ -69,9 +70,9 @@ def load_network(network):
 
 # Network definition
 net = vo.OSVOS(pretrained=0)
-net.load_state_dict(torch.load(os.path.join(save_dir, parentModelName+'_epoch-'+str(parentEpoch-1)+'.pth'),
-                               map_location=lambda storage, loc: storage))
-# net = load_network(net)
+# net.load_state_dict(torch.load(os.path.join(save_dir, parentModelName+'_epoch-'+str(parentEpoch-1)+'.pth'),
+#                                map_location=lambda storage, loc: storage))
+net = load_network(net)
 
 # Logging into Tensorboard
 log_dir = os.path.join(save_dir, 'runs', datetime.now().strftime('%b%d_%H-%M-%S') + '_' + socket.gethostname()+'-'+seq_name)
@@ -112,11 +113,11 @@ composed_transforms = transforms.Compose([tr.RandomHorizontalFlip(),
                                           tr.ToTensor()])
 # Training dataset and its iterator
 db_train = db.DAVIS2016(train=True, db_root_dir=db_root_dir, transform=composed_transforms, seq_name=None)
-trainloader = DataLoader(db_train, batch_size=p['trainBatch'], shuffle=True, num_workers=1)
+trainloader = DataLoader(db_train, batch_size=p['trainBatch'], shuffle=True, num_workers=4)
 
 # Testing dataset and its iterator
 db_test = db.DAVIS2016(train=False, db_root_dir=db_root_dir, transform=tr.ToTensor(), seq_name=None)
-testloader = DataLoader(db_test, batch_size=1, shuffle=False, num_workers=1)
+testloader = DataLoader(db_test, batch_size=1, shuffle=False, num_workers=4)
 
 
 num_img_tr = len(trainloader)

@@ -43,10 +43,13 @@ class DAVIS2016(Dataset):
                 for seq in seqs:
                     images = np.sort(os.listdir(os.path.join(db_root_dir, 'JPEGImages/480p/', seq.strip())))
                     images_path = list(map(lambda x: os.path.join('JPEGImages/480p/', seq.strip(), x), images))
-                    img_list.extend(images_path)
+                    # img_list.extend(images_path)
                     lab = np.sort(os.listdir(os.path.join(db_root_dir, 'Annotations/480p/', seq.strip())))
                     lab_path = list(map(lambda x: os.path.join('Annotations/480p/', seq.strip(), x), lab))
-                    labels.extend(lab_path)
+                    # labels.extend(lab_path)
+                    if self.train:
+                        img_list.append(images_path[0])
+                        labels.append(lab_path[0])
         else:
 
             # Initialize the per sequence images for online training
