@@ -11,3 +11,4 @@ params.py
 cluster/script.sh
 cluster/train_parent.sh
 experiments/
+data/
