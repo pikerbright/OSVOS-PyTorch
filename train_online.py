@@ -22,6 +22,8 @@ import networks.vgg_osvos as vo
 from layers.osvos_layers import class_balanced_cross_entropy_loss
 from dataloaders.helpers import *
 from mypath import Path
+from util.util import AverageMeter
+import time
 
 # Setting of parameters
 if 'SEQ_NAME' not in os.environ.keys():
@@ -113,7 +115,13 @@ for epoch in range(0, nEpochs):
     # One training epoch
     running_loss_tr = 0
     np.random.seed(seed + epoch)
+
+    batch_time = AverageMeter()
+    data_time = AverageMeter()
+
+    end = time.time()
     for ii, sample_batched in enumerate(trainloader):
+        data_time.update(time.time() - end)
 
         inputs, gts = sample_batched['image'], sample_batched['gt']
 
@@ -147,6 +155,16 @@ for epoch in range(0, nEpochs):
             optimizer.step()
             optimizer.zero_grad()
             aveGrad = 0
+
+        # measure elapsed time
+        batch_time.update(time.time() - end)
+        end = time.time()
+
+        print('Epoch: [{0}][{1}/{2}]\t'
+              'Time {batch_time.val:.3f} ({batch_time.avg:.3f})\t'
+              'Data {data_time.val:.3f} ({data_time.avg:.3f})'
+              .format(epoch, ii, len(trainloader), batch_time=batch_time, data_time=data_time))
+
 
     # Save the model
     if (epoch % snapshot) == snapshot - 1 and epoch != 0:
